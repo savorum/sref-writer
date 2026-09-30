@@ -36,7 +36,14 @@ def write(recipes: Iterable[tuple[dict[str, Any], Mapping[str, bytes] | None]]) 
     members: list[tuple[str, bytes]] = []
     manifest_entries: list[dict[str, Any]] = []
 
-    for index, (document, assets) in enumerate(recipes, start=1):
+    for index, member in enumerate(recipes, start=1):
+        if not isinstance(member, tuple | list) or len(member) != 2:
+            raise WriteRefusedError(
+                "bundle-member-shape",
+                "a bundle member is a (document, assets) pair",
+                f"recipes[{index - 1}]",
+            )
+        document, assets = member
         member_id = f"r{index:06d}"
         path = f"recipes/{member_id}.sref"
         content = package_module.write(document, assets)

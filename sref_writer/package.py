@@ -10,14 +10,12 @@ from __future__ import annotations
 import hashlib
 import io
 import zipfile
-from typing import TYPE_CHECKING, Any
+from collections.abc import Mapping
+from typing import Any
 
 from . import recipe as recipe_module
 from . import schema
 from .errors import WriteRefusedError
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
 
 PACKAGE_VERSION = "0.1.0"
 
@@ -27,7 +25,16 @@ EPOCH = (1980, 1, 1, 0, 0, 0)
 
 def write(document: dict[str, Any], assets: Mapping[str, bytes] | None = None) -> bytes:
     """Build a package in memory, keyed by the recipe's own asset IDs."""
+    if assets is not None and not isinstance(assets, Mapping):
+        raise WriteRefusedError(
+            "assets-mapping-required", "asset bytes are a mapping keyed by asset ID"
+        )
     assets = dict(assets or {})
+    for asset_id in assets:
+        if not isinstance(asset_id, str):
+            raise WriteRefusedError(
+                "assets-mapping-required", f"asset ID {asset_id!r} is not a string"
+            )
     prepared = recipe_module.prepare(document)
     recipe_bytes = recipe_module.write(prepared)
 
@@ -54,6 +61,12 @@ def write(document: dict[str, Any], assets: Mapping[str, bytes] | None = None) -
                 f"assets[{asset_id}]",
             )
         content = assets.pop(asset_id)
+        if not isinstance(content, bytes | bytearray):
+            raise WriteRefusedError(
+                "asset-bytes-required",
+                f"the bytes supplied for {asset_id!r} are {type(content).__name__}, not bytes",
+                f"assets[{asset_id}]",
+            )
         digest = hashlib.sha256(content).hexdigest()
         # Corrected to the bytes written rather than trusted.
         asset["sha256"] = digest

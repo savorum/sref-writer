@@ -102,6 +102,7 @@ def prepare(document: dict[str, Any]) -> dict[str, Any]:
                 temperature_code="temperature-nutrition-basis",
             )
     _normalize_microwave_percentages(prepared)
+    _reject_non_string_names(prepared, "")
     _reject_nonfinite(prepared, "")
     _reject_control_characters(prepared, "")
 
@@ -541,6 +542,22 @@ def _reject_control_characters(node: Any, path: str) -> None:
     elif isinstance(node, list):
         for index, value in enumerate(node):
             _reject_control_characters(value, f"{path}[{index}]")
+
+
+def _reject_non_string_names(node: Any, path: str) -> None:
+    """JSON member names are strings; the schema check assumes it."""
+    if isinstance(node, dict):
+        for name, value in node.items():
+            if not isinstance(name, str):
+                raise WriteRefusedError(
+                    "non-string-member-name",
+                    f"member name {name!r} is not a string",
+                    path,
+                )
+            _reject_non_string_names(value, f"{path}.{name}" if path else name)
+    elif isinstance(node, list):
+        for index, value in enumerate(node):
+            _reject_non_string_names(value, f"{path}[{index}]")
 
 
 def _reject_nonfinite(node: Any, path: str) -> None:

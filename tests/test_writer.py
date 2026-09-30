@@ -1134,6 +1134,38 @@ class VersionScopedMembers(unittest.TestCase):
         self.assertNotEqual(written["sref"]["version"], sref_writer.SUPPORTED_FORMAT)
 
 
+class MistypedInput(unittest.TestCase):
+    """Input of the wrong type is a refusal, never an exception of another kind."""
+
+    def test_asset_bytes_must_be_bytes(self):
+        body = recipe(
+            assets=[
+                {
+                    "id": "a",
+                    "path": "assets/a.png",
+                    "media_type": "image/png",
+                    "sha256": "0" * 64,
+                    "size": 0,
+                }
+            ]
+        )
+        with self.assertRaises(WriteRefusedError):
+            sref_writer.write_package(body, {"a": None})
+
+    def test_assets_must_be_a_mapping_of_string_ids(self):
+        for assets in ([("a", b"x")], {1: b"x", "": b"y"}):
+            with self.subTest(assets=assets), self.assertRaises(WriteRefusedError):
+                sref_writer.write_package(recipe(), assets)
+
+    def test_member_names_must_be_strings(self):
+        with self.assertRaises(WriteRefusedError):
+            sref_writer.write_recipe(recipe(extra={1: "x"}))
+
+    def test_a_bundle_member_is_a_pair(self):
+        with self.assertRaises(WriteRefusedError):
+            sref_writer.write_bundle([recipe()])
+
+
 if __name__ == "__main__":
     unittest.main()
 
