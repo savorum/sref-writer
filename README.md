@@ -46,6 +46,8 @@ Path("tea.sref").write_bytes(sref_writer.write_package(document, {}))
   writer refuses.
 - [Development](docs/development.md): checks, conformance, and testing the
   installed distribution.
+- [Security assessment](docs/security-assessment.md): the risks reviewed and the
+  controls and tests that cover them.
 
 ## Compatibility
 
@@ -61,15 +63,9 @@ unrecognized members and extensions unchanged.
 
 ## Contributing
 
-Every commit carries a Developer Certificate of Origin sign-off, created with
-`git commit -s`:
-
-```text
-Signed-off-by: Your Name <your-email@example.com>
-```
-
-The sign-off certifies the statement at <https://developercertificate.org/>, and
-CI rejects a commit whose sign-off does not name its author.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for reporting defects, changes, and the
+Developer Certificate of Origin sign-off, and [GOVERNANCE.md](GOVERNANCE.md) for
+roles.
 
 ## Licence
 
