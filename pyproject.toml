@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sref-writer"
+# The distribution version and the format version are separate numbers about
+# separate things, and the SREF version this implements is `SUPPORTED_FORMAT`.
+# They agree here because this release exists to implement that version.
+version = "0.4.0"
+description = "A reference writer for the Structured Recipe Exchange Format"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+# The published schemas are the artifact that says what SREF permits. A writer
+# whose promise is to never emit anything the specification forbids cannot keep
+# that promise while declining to read them, and re-implementing a JSON Schema
+# validator to preserve a dependency-free claim would be the wrong trade.
+dependencies = ["jsonschema>=4.18"]
+
+[project.optional-dependencies]
+dev = ["ruff"]
+
+[project.urls]
+Specification = "https://github.com/savorum/sref"
+Source = "https://github.com/savorum/sref-writer"
+
+[tool.setuptools]
+packages = ["sref_writer"]
+
+# The pinned release snapshot is not incidental data: without it the writer
+# cannot check a unit against the registry it stamps on every document. It
+# ships in the wheel and the sdist, and `tools/installed.py` checks that it
+# did.
+[tool.setuptools.package-data]
+sref_writer = ["_vendor/**/*.json"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "SIM", "RUF", "N", "A", "DTZ", "PTH", "RSE", "S", "TRY", "PGH", "SLF", "ICN", "FURB", "LOG", "PERF", "ARG", "RET", "COM", "T20", "FA", "TID", "PIE", "ERA", "FBT", "TCH"]
+# COM812 (missing trailing comma) is a formatter decision, and ruff warns
+# that selecting it alongside `ruff format` produces conflicting fixes.
+ignore = ["E501", "COM812"]
+
+extend-select = ["RUF100"]
+per-file-ignores = {}
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
