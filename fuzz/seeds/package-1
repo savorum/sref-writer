@@ -1,0 +1,1 @@
+{"id": "soup", "title": "Soup", "ingredient_sections": [{"id": "i", "ingredients": [{"id": "salt", "name": "salt", "quantity": {"kind": "simple", "amount": {"value": "1/2"}, "unit": "mass.gram"}}]}], "instruction_sections": [{"id": "m", "steps": [{"id": "s", "text": "Cook."}]}]}
