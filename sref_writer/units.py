@@ -73,17 +73,17 @@ class Registry:
         return unit
 
 
-def registry(declared: str, supported: str) -> Registry | None:
-    """The registry to check against, or `None` when the document outranks it.
+def registry(declared: Any) -> Registry | None:
+    """The registry the document names, or `None` when it outranks this build.
 
     A document declaring a newer compatible registry may carry unit IDs this
     build has never seen.
     """
-    if declared != supported:
+    if declared not in snapshot.registry_versions():
         return None
-    return _pinned()
+    return _pinned(declared)
 
 
-@functools.lru_cache(maxsize=1)
-def _pinned() -> Registry:
-    return Registry({unit["id"]: unit for unit in snapshot.units()["units"]})
+@functools.cache
+def _pinned(version: str) -> Registry:
+    return Registry({unit["id"]: unit for unit in snapshot.units(version)["units"]})

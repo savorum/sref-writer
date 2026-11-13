@@ -235,22 +235,39 @@ class Defaults(unittest.TestCase):
 class Versions(unittest.TestCase):
     def test_the_header_is_supplied_and_written_first(self):
         written = sref_writer.write_recipe(recipe())
-        self.assertEqual(json.loads(written)["sref"]["version"], "0.4.0")
+        self.assertEqual(
+            json.loads(written)["sref"],
+            {"version": "0.5.0", "unit_registry": "0.3.0"},
+        )
         self.assertLess(written.index(b'"sref"'), written.index(b'"id"'))
 
     def test_a_compatible_newer_document_keeps_the_version_it_declared(self):
         # A newer compatible version is kept, not relabelled.
         body = recipe(
-            sref={"version": "0.5.0", "unit_registry": "0.3.0"},
+            sref={"version": "0.6.0", "unit_registry": "0.3.0"},
             publication={"status": "draft"},
         )
         written = json.loads(sref_writer.write_recipe(body))
-        self.assertEqual(written["sref"]["version"], "0.5.0")
+        self.assertEqual(written["sref"]["version"], "0.6.0")
         self.assertEqual(written["publication"], {"status": "draft"})
 
     def test_an_older_line_is_refused(self):
         with self.assertRaises(WriteRefusedError):
             sref_writer.write_recipe(recipe(sref={"version": "0.0.1", "unit_registry": "0.2.0"}))
+
+    def test_a_vendored_earlier_release_is_written_as_declared(self):
+        header = {"version": "0.4.0", "unit_registry": "0.2.0"}
+        written = json.loads(sref_writer.write_recipe(recipe(sref=header)))
+        self.assertEqual(written["sref"], header)
+
+    def test_a_release_older_than_the_vendored_ones_is_refused(self):
+        for header, code in (
+            ({"version": "0.3.0", "unit_registry": "0.3.0"}, "unsupported-format-version"),
+            ({"version": "0.5.0", "unit_registry": "0.1.0"}, "unsupported-registry-version"),
+        ):
+            with self.subTest(header=header), self.assertRaises(WriteRefusedError) as caught:
+                sref_writer.write_recipe(recipe(sref=header))
+            self.assertEqual(caught.exception.code, code)
 
 
 class Preservation(unittest.TestCase):
@@ -508,12 +525,63 @@ class Units(unittest.TestCase):
         )
         self.assertEqual(refused.code, "invalid-temperature-unit")
 
+    def test_units_added_in_registry_0_3_0_are_written(self):
+        for unit in (
+            "mass.decagram",
+            "mass.hectogram",
+            "volume.go.jp",
+            "volume.cup.gr",
+            "count.stick",
+            "count.dash",
+            "container.punnet",
+        ):
+            with self.subTest(unit=unit):
+                body = self.ingredient(
+                    quantity={"kind": "simple", "amount": {"value": 2}, "unit": unit},
+                )
+                written = json.loads(sref_writer.write_recipe(body))
+                self.assertEqual(
+                    written["ingredient_sections"][0]["ingredients"][0]["quantity"]["unit"],
+                    unit,
+                )
+
+    def test_a_unit_the_declared_registry_lacks_is_refused(self):
+        refused = self.refusal(
+            self.ingredient(
+                quantity={"kind": "simple", "amount": {"value": 1}, "unit": "mass.dekagram"}
+            ),
+        )
+        self.assertEqual(refused.code, "unknown-unit")
+
+    def test_a_unit_added_in_0_3_0_is_unknown_to_registry_0_2_0(self):
+        body = self.ingredient(
+            quantity={"kind": "simple", "amount": {"value": 2}, "unit": "mass.decagram"},
+        )
+        body["sref"] = {"version": "0.5.0", "unit_registry": "0.2.0"}
+        self.assertEqual(self.refusal(body).code, "unknown-unit")
+
+    def test_a_physical_unit_added_in_0_3_0_is_a_package_size(self):
+        body = self.ingredient(
+            quantity={"kind": "simple", "amount": {"value": 2}, "unit": "container.jar"},
+            package_size={"kind": "simple", "amount": {"value": 2}, "unit": "mass.hectogram"},
+        )
+        self.assertIn(b"mass.hectogram", sref_writer.write_recipe(body))
+
+    def test_a_count_unit_added_in_0_3_0_is_not_a_package_size(self):
+        refused = self.refusal(
+            self.ingredient(
+                quantity={"kind": "simple", "amount": {"value": 2}, "unit": "container.jar"},
+                package_size={"kind": "simple", "amount": {"value": 4}, "unit": "count.slice"},
+            ),
+        )
+        self.assertEqual(refused.code, "nonphysical-package-size")
+
     def test_a_newer_registry_carries_units_this_build_has_never_seen(self):
         # Section 5: an ID from a compatible newer registry is preserved.
         body = self.ingredient(
             quantity={"kind": "simple", "amount": {"value": 1}, "unit": "mass.smidgen"},
         )
-        body["sref"] = {"version": "0.4.0", "unit_registry": "0.3.0"}
+        body["sref"] = {"version": "0.5.0", "unit_registry": "0.4.0"}
         written = json.loads(sref_writer.write_recipe(body))
         self.assertEqual(
             written["ingredient_sections"][0]["ingredients"][0]["quantity"]["unit"],
@@ -611,19 +679,22 @@ class PinnedSnapshot(unittest.TestCase):
     """
 
     def test_every_snapshot_file_loads_and_matches_its_digest(self):
-        for name in snapshot.manifest()["files"]:
-            with self.subTest(name=name):
-                self.assertIsNotNone(snapshot.load(name))
+        for release in snapshot.RELEASES:
+            for name in snapshot.manifest(release)["files"]:
+                with self.subTest(release=release, name=name):
+                    self.assertIsNotNone(snapshot.load(name, release))
 
     def test_the_snapshot_is_read_from_inside_the_package(self):
-        located = resources.files("sref_writer") / "_vendor" / "sref-0.4.0" / "manifest.json"
-        self.assertTrue(located.is_file())
+        for release in snapshot.RELEASES:
+            located = (
+                resources.files("sref_writer") / "_vendor" / f"sref-{release}" / "manifest.json"
+            )
+            self.assertTrue(located.is_file(), release)
 
-    def test_the_shipped_registry_is_the_one_this_build_writes_against(self):
-        self.assertEqual(
-            snapshot.manifest()["unit_registry_version"],
-            sref_writer.SUPPORTED_REGISTRY,
-        )
+    def test_the_latest_release_is_the_one_this_build_writes_against(self):
+        manifest = snapshot.manifest()
+        self.assertEqual(manifest["sref_version"], sref_writer.SUPPORTED_FORMAT)
+        self.assertEqual(manifest["unit_registry_version"], sref_writer.SUPPORTED_REGISTRY)
 
     def test_a_snapshot_file_the_release_did_not_record_is_refused(self):
         with self.assertRaises(snapshot.SnapshotCorruptError):
@@ -1091,9 +1162,9 @@ class VersionScopedMembers(unittest.TestCase):
     refused rather than carried as opaque future data.
     """
 
-    def document(self, version: str = "0.4.0", **members) -> dict:
+    def document(self, version: str = "0.5.0", **members) -> dict:
         base = {
-            "sref": {"version": version, "unit_registry": "0.2.0"},
+            "sref": {"version": version, "unit_registry": "0.3.0"},
             "id": "scoped",
             "title": "Scoped",
             "ingredient_sections": [{"id": "i", "ingredients": [{"id": "salt", "name": "salt"}]}],
@@ -1123,14 +1194,14 @@ class VersionScopedMembers(unittest.TestCase):
     def test_it_carries_a_compatible_newer_document_unchanged(self):
         written = json.loads(
             sref_writer.write_recipe(
-                self.document(version="0.5.0", future_standard_field={"value": 4})
+                self.document(version="0.6.0", future_standard_field={"value": 4})
             )
         )
-        self.assertEqual(written["sref"]["version"], "0.5.0")
+        self.assertEqual(written["sref"]["version"], "0.6.0")
         self.assertEqual(written["future_standard_field"], {"value": 4})
 
     def test_it_does_not_relabel_a_newer_document_as_its_own_version(self):
-        written = json.loads(sref_writer.write_recipe(self.document(version="0.5.0")))
+        written = json.loads(sref_writer.write_recipe(self.document(version="0.6.0")))
         self.assertNotEqual(written["sref"]["version"], sref_writer.SUPPORTED_FORMAT)
 
 

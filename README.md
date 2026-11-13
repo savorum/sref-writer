@@ -50,14 +50,17 @@ Path("tea.sref").write_bytes(sref_writer.write_package(document, {}))
 ## Compatibility
 
 `__version__` and `pyproject.toml` version this library.
-`SUPPORTED_FORMAT` (`0.4.0`) and `SUPPORTED_REGISTRY` (`0.2.0`) name the SREF
+`SUPPORTED_FORMAT` (`0.5.0`) and `SUPPORTED_REGISTRY` (`0.3.0`) name the SREF
 and unit-registry versions it writes. The three numbers are independent.
 
-The vendored SREF snapshot is loaded through `importlib.resources` and checked
-against its manifest digests; altered bytes fail to load. Output is checked
-against the schema and against the semantic and archive rules the schema cannot
-express. A document declaring a compatible newer SREF version keeps its
-unrecognized members and extensions unchanged.
+The vendored SREF snapshots (0.4.0 and 0.5.0) are loaded through
+`importlib.resources` and checked against their manifest digests; altered bytes
+fail to load. The writer emits 0.5.0 by default and writes a document declaring
+0.4.0 or a newer compatible version as declared. Units are checked against the
+registry snapshot the document names. Output is checked against the schema and
+against the semantic and archive rules the schema cannot express. A document
+declaring a compatible newer SREF version keeps its unrecognized members and
+extensions unchanged.
 
 ## Contributing
 

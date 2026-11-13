@@ -61,15 +61,16 @@ def main() -> int:
 
     # The snapshot is the part a wheel loses, so read all of it, not just the
     # file the write path happens to need. Each load verifies its own digest.
-    for name in snapshot.manifest()["files"]:
-        snapshot.load(name)
+    for release in snapshot.RELEASES:
+        for name in snapshot.manifest(release)["files"]:
+            snapshot.load(name, release)
+        LOGGER.info(
+            "snapshot %s / registry %s: %s files",
+            snapshot.manifest(release)["sref_version"],
+            snapshot.manifest(release)["unit_registry_version"],
+            len(snapshot.manifest(release)["files"]),
+        )
     version = snapshot.manifest()["unit_registry_version"]
-    LOGGER.info(
-        "snapshot %s / registry %s: %s files",
-        snapshot.manifest()["sref_version"],
-        version,
-        len(snapshot.manifest()["files"]),
-    )
     if version != sref_writer.SUPPORTED_REGISTRY:
         LOGGER.error(
             "the shipped registry is %s, but this build writes %s",

@@ -1,6 +1,6 @@
 """A reference SREF writer.
 
-It emits SREF 0.4.0 recipe documents, `.sref` packages and `.srefbundle`
+It emits SREF 0.5.0 recipe documents, `.sref` packages and `.srefbundle`
 bundles, and refuses to produce anything the specification forbids.
 
     import sref_writer
@@ -26,7 +26,7 @@ from .recipe import SUPPORTED_FORMAT, SUPPORTED_REGISTRY, prepare
 from .recipe import write as write_recipe
 
 #: The distribution version, which is not the SREF version it implements.
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 #: The conformance capabilities this implementation claims, in the vocabulary
 #: of the specification's section 22. Round-trip conformance is deliberately

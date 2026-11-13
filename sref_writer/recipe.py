@@ -11,11 +11,15 @@ import copy
 import json
 from typing import Any
 
-from . import rational, schema, units, validate
+from . import rational, schema, snapshot, units, validate
 from .errors import WriteRefusedError
 
-SUPPORTED_FORMAT = "0.4.0"
-SUPPORTED_REGISTRY = "0.2.0"
+SUPPORTED_FORMAT = "0.5.0"
+SUPPORTED_REGISTRY = "0.3.0"
+
+#: The oldest versions a document may declare: the oldest vendored release.
+_OLDEST_FORMAT = snapshot.RELEASES[0]
+_OLDEST_REGISTRY = snapshot.registry_versions()[0]
 
 #: Members whose values are amounts, wherever they appear in a recipe.
 _AMOUNT_MEMBERS = ("value", "min", "max")
@@ -71,7 +75,7 @@ def prepare(document: dict[str, Any]) -> dict[str, Any]:
     # Which registry the units are checked against is the document's own
     # declaration, not this build's, so a document from a newer compatible
     # release keeps unit IDs this build has never heard of.
-    registry = units.registry(prepared["sref"]["unit_registry"], SUPPORTED_REGISTRY)
+    registry = units.registry(prepared["sref"]["unit_registry"])
 
     for member, normalize in (
         ("ingredient_sections", _ingredient_section),
@@ -168,25 +172,26 @@ def _header(header: Any) -> dict[str, Any]:
     written.setdefault("version", SUPPORTED_FORMAT)
     written.setdefault("unit_registry", SUPPORTED_REGISTRY)
     # Each header member reports its own category.
-    for member, supported, code in (
-        ("version", SUPPORTED_FORMAT, "unsupported-format-version"),
-        ("unit_registry", SUPPORTED_REGISTRY, "unsupported-registry-version"),
+    for member, oldest, supported, code in (
+        ("version", _OLDEST_FORMAT, SUPPORTED_FORMAT, "unsupported-format-version"),
+        ("unit_registry", _OLDEST_REGISTRY, SUPPORTED_REGISTRY, "unsupported-registry-version"),
     ):
-        if not _compatible(written[member], supported):
+        if not _compatible(written[member], oldest):
             raise WriteRefusedError(
                 code,
-                f"this writer emits {supported}, not {written[member]!r}",
+                f"this writer emits {oldest} to {supported}, not {written[member]!r}",
                 f"sref.{member}",
             )
     return written
 
 
-def _compatible(declared: Any, supported: str) -> bool:
-    """Same major line, and not older than what this build implements.
+def _compatible(declared: Any, oldest: str) -> bool:
+    """Same major line, and not older than the oldest vendored release.
 
-    Older is refused; newer in the same line is carried through untouched.
+    Older is refused; a version from the vendored range is written as declared,
+    and a newer one in the same line is carried through untouched.
     """
-    got, want = _parse_version(declared), _parse_version(supported)
+    got, want = _parse_version(declared), _parse_version(oldest)
     return got is not None and want is not None and got[0] == want[0] and got >= want
 
 

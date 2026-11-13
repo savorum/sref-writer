@@ -17,8 +17,8 @@ concurrency:
 
 env:
   # Exact revisions, not branches; `drift` reports upstream movement.
-  SREF_COMMIT: 90b5302b6b26c8c871c55606ef5562a713ee8dd6
-  SREF_READER_COMMIT: ae4ba0d1b039ab5297e4e61278454f8f83807ae8
+  SREF_COMMIT: d179e04734574d864c80252bb8d6ec02f2ca1b2d
+  SREF_READER_COMMIT: b679a0c7f901555933246943a6e9b44ec043d764
 
 jobs:
   dco:

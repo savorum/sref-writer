@@ -6,7 +6,7 @@ Uniqueness and reference resolution, which JSON Schema cannot state and section
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import json
 import re
 import unicodedata
@@ -96,7 +96,7 @@ def _chronology(document: dict[str, Any]) -> None:
                 member,
             )
         try:
-            datetime.date.fromisoformat(value[:10])
+            dt.date.fromisoformat(value[:10])
         except ValueError:
             raise WriteRefusedError(
                 "invalid-publication-date", f"{value!r} is not a real calendar date", member
